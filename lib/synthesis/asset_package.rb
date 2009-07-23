@@ -141,7 +141,22 @@ module Synthesis
         merged_file = ""
         @sources.each {|s| 
           File.open("#{@asset_path}/#{s}.#{@extension}", "r") { |f| 
-            merged_file += f.read + "\n" 
+            asset_content = f.read
+            case @asset_type
+            when 'stylesheets'
+              # Fix relative urls in url()
+              asset_content.gsub!(%r{
+                \b
+                (url[(]\s*)           # Emulate look behind assertion, match "url("
+                (?=                   # Look ahead assertion to match relative path
+                  [^/:\s](?!://)        # Not start with /:, and make sure it isn't
+                  (?:[^)](?!://))+\)    # a absolute path with protocol prefix
+                )
+                }x,
+                "\\1#{File.dirname(s)}/"
+              )
+            end
+            merged_file << asset_content << "\n"
           }
         }
         merged_file
