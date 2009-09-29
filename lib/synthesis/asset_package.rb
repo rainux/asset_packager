@@ -2,20 +2,20 @@ module Synthesis
   class AssetPackage
 
     # class variables
-    @@asset_packages_yml = $asset_packages_yml || 
+    @@asset_packages_yml = $asset_packages_yml ||
       (File.exists?("#{RAILS_ROOT}/config/asset_packages.yml") ? YAML.load_file("#{RAILS_ROOT}/config/asset_packages.yml") : nil)
-  
+
     # singleton methods
     class << self
-      
+
       def merge_environments=(environments)
         @@merge_environments = environments
       end
-      
+
       def merge_environments
         @@merge_environments ||= ["production"]
       end
-      
+
       def parse_path(path)
         /^(?:(.*)\/)?([^\/]+)$/.match(path).to_a
       end
@@ -89,10 +89,10 @@ module Synthesis
       end
 
     end
-    
+
     # instance methods
     attr_accessor :asset_type, :target, :target_dir, :sources
-  
+
     def initialize(asset_type, package_hash)
       target_parts = self.class.parse_path(package_hash.keys.first)
       @target_dir = target_parts[1].to_s
@@ -105,7 +105,7 @@ module Synthesis
       @file_name = "#{@target}_packaged.#{@extension}"
       @full_path = File.join(@asset_path, @file_name)
     end
-  
+
     def package_exists?
       File.exists?(@full_path)
     end
@@ -139,29 +139,14 @@ module Synthesis
 
       def merged_file
         merged_file = ""
-        @sources.each {|s| 
-          File.open("#{@asset_path}/#{s}.#{@extension}", "r") { |f| 
-            asset_content = f.read
-            case @asset_type
-            when 'stylesheets'
-              # Fix relative urls in url()
-              asset_content.gsub!(%r{
-                \b
-                (url[(]\s*)           # Emulate look behind assertion, match "url("
-                (?=                   # Look ahead assertion to match relative path
-                  [^/:\s](?!://)        # Not start with /:, and make sure it isn't
-                  (?:[^)](?!://))+\)    # a absolute path with protocol prefix
-                )
-                }x,
-                "\\1#{File.dirname(s)}/"
-              )
-            end
-            merged_file << asset_content << "\n"
+        @sources.each {|s|
+          File.open("#{@asset_path}/#{s}.#{@extension}", "r") { |f|
+            merged_file << fix_relative_urls(f.read, s) << "\n"
           }
         }
         merged_file
       end
-    
+
       def compressed_file
         case @asset_type
           when "javascripts" then compress_js(merged_file)
@@ -172,24 +157,24 @@ module Synthesis
       def compress_js(source)
         jsmin_path = "#{RAILS_ROOT}/vendor/plugins/asset_packager/lib"
         tmp_path = "#{RAILS_ROOT}/tmp/#{@target}_packaged"
-      
+
         # write out to a temp file
         File.open("#{tmp_path}_uncompressed.js", "w") {|f| f.write(source) }
-      
+
         # compress file with JSMin library
         `ruby #{jsmin_path}/jsmin.rb <#{tmp_path}_uncompressed.js >#{tmp_path}_compressed.js \n`
 
         # read it back in and trim it
         result = ""
         File.open("#{tmp_path}_compressed.js", "r") { |f| result += f.read.strip }
-  
+
         # delete temp files if they exist
         File.delete("#{tmp_path}_uncompressed.js") if File.exists?("#{tmp_path}_uncompressed.js")
         File.delete("#{tmp_path}_compressed.js") if File.exists?("#{tmp_path}_compressed.js")
 
         result
       end
-  
+
       def compress_css(source)
         source.gsub!(/\s+/, " ")           # collapse space
         source.gsub!(/\/\*(.*?)\*\//, "")  # remove comments - caution, might want to remove this if using css hacks
@@ -200,17 +185,34 @@ module Synthesis
         source
       end
 
+      def fix_relative_urls(asset_content, asset_relative_path)
+        case @asset_type
+        when 'stylesheets'
+          asset_content.gsub!(%r{
+            \b
+            (url[(]\s*)           # Emulate look behind assertion, match "url("
+            (?=                   # Look ahead assertion to match relative path
+              [^/:\s](?!://)        # Not start with /:, and make sure it isn't
+              (?:[^)](?!://))+\)    # a absolute path with protocol prefix
+            )
+            }x,
+            "\\1#{File.dirname(asset_relative_path)}/"
+          )
+        end
+        asset_content
+      end
+
       def get_extension
         case @asset_type
           when "javascripts" then "js"
           when "stylesheets" then "css"
         end
       end
-      
+
       def log(message)
         self.class.log(message)
       end
-      
+
       def self.log(message)
         puts message
       end
@@ -222,6 +224,6 @@ module Synthesis
         file_list.reverse! if extension == "js"
         file_list
       end
-   
+
   end
 end
