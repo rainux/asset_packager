@@ -14,6 +14,8 @@ $asset_packages_yml = YAML.load_file("#{RAILS_ROOT}/vendor/plugins/asset_package
 $asset_base_path = "#{RAILS_ROOT}/vendor/plugins/asset_packager/test/assets"
 
 class AssetPackageHelperProductionTest < Test::Unit::TestCase
+  include ActionController::TestCase::Assertions if defined?(ActionController::TestCase::Assertions)
+  include ActionController::Assertions::DomAssertions if defined?(ActionController::Assertions::DomAssertions)
   include ActionView::Helpers::TagHelper
   include ActionView::Helpers::AssetTagHelper
   include Synthesis::AssetPackageHelper
