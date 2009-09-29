@@ -14,3 +14,13 @@
 	text-align: center;
 }
 
+#newSpeciesBtn {
+	float: right;
+	background: #65a52d url(../images/icons_16_green.gif) no-repeat 6px -286px;
+	color: #fff;
+	padding: .1em 10px .2em 25px;
+	text-decoration: none;
+	white-space: nowrap;
+	font-size: 1.1em;
+	margin: 0pt 5px 5px 0pt;
+}
